@@ -32,7 +32,7 @@ String ssid_leido;
 String pass_leido;
 String Topic1_leido;
 String Topic2_leido;
-
+String scanWifi;
 int ssid_tamano = 0;
 int pass_tamano = 0;
 int Topic1_tamano = 0;
@@ -193,8 +193,8 @@ void wifi_conf() {
   graba(100, getTopic1);
   graba(130, getTopic2);
   server.send(200, "text/html", String("<h2>Conexion exitosa a: "+ getssid + "<br> El pass ingresado es: " + getpass + "<br>Datos correctamente guardados." 
-  + "<br> El Topic1 ingresado es: " + getTopic1 + ".<br>" 
-  + "<br> El Topic2 ingresado es: " + getTopic2 + ".<br>" 
+  + "<br> El Topic1 ingresado es: " + getTopic1 + "." 
+  + "<br> El Topic2 ingresado es: " + getTopic2 + "." 
   + "<br>El equipo se reiniciara Conectandose a la red configurada."));
   delay(250);
   ESP.reset();
@@ -226,6 +226,13 @@ void setup() {
     timer0_isr_init();
     timer0_write(ESP.getCycleCount() + tiempoLed); // 80MHz == 1sec
     timer0_attachInterrupt(ISR_Blink);
+
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+    delay(100);
+
+    scanWIFIS();
+   
  
     Serial.print("Configuring access point...");
     WiFi.mode(WIFI_AP);
@@ -285,44 +292,35 @@ void ServicioBoton()
              }
     }
 
-/*
-void reconnect() {
- int c=0;
-  //attempt to connect to the wifi if connection is lost
-  if(WiFi.status() != WL_CONNECTED){
-    //debug printing
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
+void scanWIFIS(){
+ Serial.println("scan start");
 
-    //loop while we wait for connection
-    while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      Serial.print(".");
-      c++;
-      if(c==10){
-        break;}
-   }
-
-    if(c=!10){
-      //print out some more debug once connected
-    Serial.println("");
-    Serial.println("WiFi connected");  
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-    blink50();
-    digitalWrite(LED,true);
-      }
-    else{
-        Serial.println("");
-        Serial.println("WiFi NO CONNECTED !!!");  
-        digitalWrite(LED,false);
-      }
-    timer0_detachInterrupt();
-    
+  // WiFi.scanNetworks will return the number of networks found
+  int n = WiFi.scanNetworks();
+  Serial.println("scan done");
+  if (n == 0)
+    Serial.println("no networks found");
+  else
+  {
+    Serial.print(n);
+    Serial.println(" networks found");
+    for (int i = 0; i < n; ++i)
+    {
+      // Print SSID and RSSI for each network found
+      Serial.print(i + 1);
+      Serial.print(": ");
+      Serial.print(WiFi.SSID(i));
+      Serial.print(" (");
+      Serial.print(WiFi.RSSI(i));
+      Serial.print(")");
+      Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*");
+      delay(10);
+     
+    }
   }
 
 }
-*/
+
 
 //generate unique name from MAC addr
 String macToStr(const uint8_t* mac){
