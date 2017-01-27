@@ -10,8 +10,6 @@ long T0 = 0 ;  // Variable global para tiempo
 const int Boton_EEPROM=0;
 const int LED=2;
  
-
-
 volatile int tiempoLed=80000000;
 int address = 0;
 byte value;
@@ -27,10 +25,18 @@ ESP8266WebServer server(80);
 
 char ssid[20];
 char pass[20];
+char Topic1[20];
+char Topic2[20];
+
 String ssid_leido;
 String pass_leido;
+String Topic1_leido;
+String Topic2_leido;
+
 int ssid_tamano = 0;
 int pass_tamano = 0;
+int Topic1_tamano = 0;
+int Topic2_tamano = 0;
 
 String arregla_simbolos(String a) {
   a.replace("%C3%A1", "á");
@@ -60,16 +66,18 @@ String arregla_simbolos(String a) {
 }
 
 String pral = "<html>"
-              "<meta http-equiv='Content-Type' content='text/html; charset=utf-8'/>"
-              "<title>WIFI CONFIG</title> <style type='text/css'> body,td,th { color: #036; } body { background-color: #999; } </style> </head>"
+              "<meta http-equiv='Content-Type' content='text/html  ; charset=utf-8'/>"
+              "<title>CONFIG ESP8266</title> <style type='text/css'> body,td,th { color: #036; } body { background-color: #999; } </style> </head>"
               "<body> "
-              "<h1>WIFI CONF</h1><br>"
+              "<h1>CONFIGURACION</h1><br>"
               "<form action='config' method='get' target='pantalla'>"
-              "<fieldset align='left' style='border-style:solid; border-color:#336666; width:200px; height:180px; padding:10px; margin: 5px;'>"
+              "<fieldset align='center' style='border-style:solid; border-color:#336666; width:200px; height:300px; padding:10px; margin: 5px;'>"
               "<legend><strong>Configurar WI-FI</strong></legend>"
               "SSID: <br> <input name='ssid' type='text' size='15'/> <br><br>"
               "PASSWORD: <br> <input name='pass' type='password' size='15'/> <br><br>"
-              "<input type='submit' value='Comprobar conexion' />"
+              "TOPIC1: <br> <input name='topic1' type='text' size='15'/> <br><br>"
+              "TOPIC2: <br> <input name='topic2' type='text' size='15'/> <br><br>"
+              "<input type='submit' value='Configurar Equipo' />"
               "</fieldset>"
               "</form>"
               "<iframe id='pantalla' name='pantalla' src='' width=900px height=400px frameborder='0' scrolling='no'></iframe>"
@@ -82,9 +90,17 @@ void intento_conexion() {
   if (lee(70).equals("configurado")) {
     ssid_leido = lee(1);      //leemos ssid y password
     pass_leido = lee(30);
+    Topic1_leido=lee(100);
+    Topic2_leido=lee(130);
 
+    Serial.print("SSID: ");  //Para depuracion
     Serial.println(ssid_leido);  //Para depuracion
+     Serial.print("PASS: ");  //Para depuracion
     Serial.println(pass_leido);
+     Serial.print("TOPIC 1: ");  //Para depuracion
+    Serial.println(Topic1_leido);  //Para depuracion
+     Serial.print("TOPIC 2: ");  //Para depuracion
+    Serial.println(Topic1_leido);
 
     ssid_tamano = ssid_leido.length() + 1;  //Calculamos la cantidad de caracteres que tiene el ssid y la clave
     pass_tamano = pass_leido.length() + 1;
@@ -107,8 +123,9 @@ void intento_conexion() {
     Serial.print("Conexion exitosa a: ");
     Serial.println(ssid);
     Serial.println(WiFi.localIP());
-     blink50();
+    blink50();
     digitalWrite(LED,true);
+   
   }
   
  timer0_detachInterrupt();
@@ -124,20 +141,40 @@ void wifi_conf() {
 
   String getssid = server.arg("ssid"); //Recibimos los valores que envia por GET el formulario web
   String getpass = server.arg("pass");
+  
+  String getTopic1 = server.arg("topic1"); //Recibimos los valores que envia por GET el formulario web
+  String getTopic2 = server.arg("topic2");
 
   getssid = arregla_simbolos(getssid); //Reemplazamos los simbolos que aparecen cun UTF8 por el simbolo correcto
   getpass = arregla_simbolos(getpass);
 
+  getTopic1 = arregla_simbolos(getTopic1); //Reemplazamos los simbolos que aparecen cun UTF8 por el simbolo correcto
+  getTopic2 = arregla_simbolos(getTopic2);
+
   ssid_tamano = getssid.length() + 1;  //Calculamos la cantidad de caracteres que tiene el ssid y la clave
   pass_tamano = getpass.length() + 1;
+  
+  Topic1_tamano = getTopic1.length() + 1;  //Calculamos la cantidad de caracteres que tiene el ssid y la clave
+  Topic2_tamano = getTopic2.length() + 1;
 
   getssid.toCharArray(ssid, ssid_tamano); //Transformamos el string en un char array ya que es lo que nos pide WIFI.begin()
   getpass.toCharArray(pass, pass_tamano);
 
-  Serial.println(ssid);     //para depuracion
-  Serial.println(pass);
+  getTopic1.toCharArray(Topic1, Topic1_tamano); //Transformamos el string en un char array ya que es lo que nos pide WIFI.begin()
+  getTopic2.toCharArray(Topic2, Topic2_tamano);
 
-   WiFi.begin(ssid, pass);     //Intentamos conectar
+  Serial.print("ssid: ");
+  Serial.println(ssid);     //para depuracion
+  Serial.print("pass: ");
+  Serial.println(pass);
+  Serial.print("Topic1: ");
+  Serial.println(Topic1);     //para depuracion
+  Serial.print("Topic2: ");
+  Serial.println(Topic2);
+
+  WiFi.begin(ssid, pass); 
+      //Intentamos conectar
+ 
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
@@ -153,11 +190,14 @@ void wifi_conf() {
   graba(70, "configurado");
   graba(1, getssid);
   graba(30, getpass);
-  server.send(200, "text/html", String("<h2>Conexion exitosa a: "
-                                       + getssid + "<br> El pass ingresado es: " + getpass + "<br>Datos correctamente guardados."));
-
-
-
+  graba(100, getTopic1);
+  graba(130, getTopic2);
+  server.send(200, "text/html", String("<h2>Conexion exitosa a: "+ getssid + "<br> El pass ingresado es: " + getpass + "<br>Datos correctamente guardados." 
+  + "<br> El Topic1 ingresado es: " + getTopic1 + ".<br>" 
+  + "<br> El Topic2 ingresado es: " + getTopic2 + ".<br>" 
+  + "<br>El equipo se reiniciara Conectandose a la red configurada."));
+  delay(250);
+  ESP.reset();
 }
 
 
@@ -168,13 +208,7 @@ void wifi_conf() {
 WiFiClient wifiClient;
 
 void setup() {
- 
-  
-   
-   attachInterrupt( digitalPinToInterrupt(Boton_EEPROM), ServicioBoton, RISING);
-  
-
-
+  attachInterrupt( digitalPinToInterrupt(Boton_EEPROM), ServicioBoton, RISING);
   pinMode(Boton_EEPROM, INPUT_PULLUP);
   pinMode(LED,OUTPUT);
   Serial.begin(115200);
@@ -192,36 +226,31 @@ void setup() {
     timer0_isr_init();
     timer0_write(ESP.getCycleCount() + tiempoLed); // 80MHz == 1sec
     timer0_attachInterrupt(ISR_Blink);
+ 
     Serial.print("Configuring access point...");
-    /* You can remove the password parameter if you want the AP to be open. */
     WiFi.mode(WIFI_AP);
     WiFi.softAP(ssid_AP, password_AP,11,0);// (*char SSID,*char PASS,int CHANNEL,int HIDDEN=1 NO_HIDDEN=0)
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
     Serial.println(myIP);
+    server.on("/", []() {server.send(200, "text/html", pral);});
+    server.on("/config", wifi_conf);
+    server.begin();
+    Serial.println("Webserver iniciado...");
+    Serial.println(lee(70));
+    Serial.println(lee(1));
+    Serial.println(lee(30));
     
-     server.on("/", []() {
-    server.send(200, "text/html", pral);
-  });
-  server.on("/config", wifi_conf);
-  server.begin();
-  Serial.println("Webserver iniciado...");
- 
-  Serial.println(lee(70));
-  Serial.println(lee(1));
-  Serial.println(lee(30));
-  intento_conexion();
-
     }
   else{
      noInterrupts();
-    tiempoLed=80000000;
+     tiempoLed=80000000;
      timer0_isr_init();
      timer0_write(ESP.getCycleCount() + tiempoLed); // 80MHz == 1sec
-    timer0_attachInterrupt(ISR_Blink);
+     timer0_attachInterrupt(ISR_Blink);
      interrupts();
      WiFi.mode(WIFI_STA);
-    intento_conexion();
+     intento_conexion();
    }
 
   modo=0;
@@ -243,6 +272,7 @@ void loop() {
               EEPROM.commit();
               delay(10);
               ESP.reset();
+              
          }
 }
 
@@ -255,7 +285,7 @@ void ServicioBoton()
              }
     }
 
-
+/*
 void reconnect() {
  int c=0;
   //attempt to connect to the wifi if connection is lost
@@ -292,7 +322,7 @@ void reconnect() {
   }
 
 }
-
+*/
 
 //generate unique name from MAC addr
 String macToStr(const uint8_t* mac){
@@ -310,8 +340,7 @@ String macToStr(const uint8_t* mac){
   return result;
 }
 
-  void blink50(){
-    
+ void blink50(){
     digitalWrite(LED,true);
     delay(50);
     digitalWrite(LED,false);
@@ -320,7 +349,7 @@ String macToStr(const uint8_t* mac){
     delay(50);
     digitalWrite(LED,false);
     delay(50);
-     digitalWrite(LED,true);
+    digitalWrite(LED,true);
     delay(50);
     digitalWrite(LED,false);
   }
