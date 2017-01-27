@@ -1,15 +1,23 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <EEPROM.h>
+#include <PubSubClient.h>
 
 /////////// antirebote /////////////
 volatile int contador = 0;   // Somos de lo mas obedientes
 int n = contador ;
 long T0 = 0 ;  // Variable global para tiempo
 
+volatile int contador2 = 0;   // Somos de lo mas obedientes
+int n2 = contador2 ;
+long T02 = 0 ;  // Variable global para tiempo
+
 const int Boton_EEPROM=0;
 const int LED=2;
- 
+const int sw=14;
+const int relay=12;
+
+
 volatile int tiempoLed=80000000;
 int address = 0;
 byte value;
@@ -162,7 +170,7 @@ void wifi_conf() {
 
   getTopic1.toCharArray(Topic1, Topic1_tamano); //Transformamos el string en un char array ya que es lo que nos pide WIFI.begin()
   getTopic2.toCharArray(Topic2, Topic2_tamano);
-
+  
   Serial.print("ssid: ");
   Serial.println(ssid);     //para depuracion
   Serial.print("pass: ");
@@ -193,8 +201,8 @@ void wifi_conf() {
   graba(100, getTopic1);
   graba(130, getTopic2);
   server.send(200, "text/html", String("<h2>Conexion exitosa a: "+ getssid + "<br> El pass ingresado es: " + getpass + "<br>Datos correctamente guardados." 
-  + "<br> El Topic1 ingresado es: " + getTopic1 + "." 
-  + "<br> El Topic2 ingresado es: " + getTopic2 + "." 
+  + "<br> El Topic1 ingresado es: " + getTopic1 + ".<br>" 
+  + "<br> El Topic2 ingresado es: " + getTopic2 + ".<br>" 
   + "<br>El equipo se reiniciara Conectandose a la red configurada."));
   delay(250);
   ESP.reset();
@@ -209,8 +217,12 @@ WiFiClient wifiClient;
 
 void setup() {
   attachInterrupt( digitalPinToInterrupt(Boton_EEPROM), ServicioBoton, RISING);
+  attachInterrupt( digitalPinToInterrupt(sw), ServicioBoton2, RISING);
   pinMode(Boton_EEPROM, INPUT_PULLUP);
   pinMode(LED,OUTPUT);
+  pinMode(sw, INPUT_PULLUP);
+  pinMode(relay,OUTPUT);
+  digitalWrite(relay,true);
   Serial.begin(115200);
   delay(10);
   Serial.println();
@@ -244,10 +256,7 @@ void setup() {
     server.on("/config", wifi_conf);
     server.begin();
     Serial.println("Webserver iniciado...");
-    Serial.println(lee(70));
-    Serial.println(lee(1));
-    Serial.println(lee(30));
-    
+   
     }
   else{
      noInterrupts();
@@ -281,6 +290,12 @@ void loop() {
               ESP.reset();
               
          }
+   if (n2 != contador2)
+  
+           {  n2 = contador2 ;
+              Serial.println("Relay!!");
+              digitalWrite(relay,!digitalRead(relay));
+         }
 }
 
 void ServicioBoton()
@@ -291,6 +306,14 @@ void ServicioBoton()
             
              }
     }
+ void ServicioBoton2()
+   {
+       if ( millis() > T02  + 250)
+          {   contador2++ ;
+              T02 = millis();
+          }
+    }
+
 
 void scanWIFIS(){
  Serial.println("scan start");
