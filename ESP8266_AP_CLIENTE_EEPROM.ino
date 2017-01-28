@@ -3,6 +3,21 @@
 #include <EEPROM.h>
 #include <PubSubClient.h>
 
+/*
+//EDIT THESE LINES TO MATCH YOUR SETUP
+#define MQTT_SERVER "192.168.0.106"
+#define MQTT_SERVER_WAN "idirect.dlinkddns.com"
+
+///    MQTT
+char* lightTopic = "prueba/light1";
+char* lightTopic2 = "prueba/light2";*/
+
+
+WiFiClient wifiClient;
+
+
+//PubSubClient client(MQTT_SERVER_WAN, 1883, callback, wifiClient);
+
 /////////// antirebote /////////////
 volatile int contador = 0;   // Somos de lo mas obedientes
 int n = contador ;
@@ -95,6 +110,7 @@ String pral = "<html>"
 
 //*********  INTENTO DE CONEXION   *********************
 void intento_conexion() {
+  
   if (lee(70).equals("configurado")) {
     ssid_leido = lee(1);      //leemos ssid y password
     pass_leido = lee(30);
@@ -131,17 +147,42 @@ void intento_conexion() {
     Serial.print("Conexion exitosa a: ");
     Serial.println(ssid);
     Serial.println(WiFi.localIP());
+    
+    /* // mosquitto
+    
+        while (!client.connected()) {
+      Serial.println("Attempting MQTT connection...");
+
+      // Generate client name based on MAC address and last 8 bits of microsecond counter
+      String clientName;
+      
+      clientName += "esp8266-";
+      uint8_t mac[6];
+      WiFi.macAddress(mac);
+      clientName += macToStr(mac);
+       Serial.println(clientName);
+
+      //if connected, subscribe to the topic(s) we want to be notified about
+      if (client.connect((char*) clientName.c_str(),"diego","24305314")){
+        Serial.println("MTQQ Connected");
+        client.subscribe(lightTopic);
+        client.subscribe(lightTopic2);
+      }
+
+      //otherwise print failed for debugging
+      else{Serial.println("Failed."); abort();}
+    }
+    
+    
+    */
     blink50();
     digitalWrite(LED,true);
    
   }
-  
+ 
  timer0_detachInterrupt();
   
 }
-
-
-
 
 //**** CONFIGURACION WIFI  *******
 void wifi_conf() {
@@ -180,20 +221,26 @@ void wifi_conf() {
   Serial.print("Topic2: ");
   Serial.println(Topic2);
 
-  WiFi.begin(ssid, pass); 
-      //Intentamos conectar
  
+
+    Serial.println("a");
+  WiFi.begin(ssid, pass); 
+
+      //Intentamos conectar
+ Serial.println("b");
   while (WiFi.status() != WL_CONNECTED)
-  {
+  {Serial.println("c");
     delay(500);
     Serial.print(".");
     cuenta++;
     if (cuenta > 20) {
       graba(70, "noconfigurado");
+      Serial.println("d");
       server.send(200, "text/html", String("<h2>No se pudo realizar la conexion<br>no se guardaron los datos.</h2>"));
       return;
     }
   }
+  Serial.println("e");
   Serial.print(WiFi.localIP());
   graba(70, "configurado");
   graba(1, getssid);
@@ -204,8 +251,9 @@ void wifi_conf() {
   + "<br> El Topic1 ingresado es: " + getTopic1 + ".<br>" 
   + "<br> El Topic2 ingresado es: " + getTopic2 + ".<br>" 
   + "<br>El equipo se reiniciara Conectandose a la red configurada."));
-  delay(250);
-  ESP.reset();
+  delay(100);
+  Serial.println("f");
+ // ESP.reset();
 }
 
 
@@ -213,32 +261,36 @@ void wifi_conf() {
  * connected to this access point to see it.
  */
 
-WiFiClient wifiClient;
-
 void setup() {
+  
   attachInterrupt( digitalPinToInterrupt(Boton_EEPROM), ServicioBoton, RISING);
   attachInterrupt( digitalPinToInterrupt(sw), ServicioBoton2, RISING);
+  
   pinMode(Boton_EEPROM, INPUT_PULLUP);
   pinMode(LED,OUTPUT);
   pinMode(sw, INPUT_PULLUP);
   pinMode(relay,OUTPUT);
+  
   digitalWrite(relay,true);
+  
   Serial.begin(115200);
-  delay(10);
   Serial.println();
-  EEPROM.begin(4096);
+  EEPROM.begin(512);
+  
   value = EEPROM.read(address);
-  Serial.print("Leyendo Direccion Registro: ");
-  Serial.println(address);
+  
+  Serial.print("Configuracion: ");
+  Serial.println(lee(70));
   Serial.print("Dato: ");
   Serial.println(value, DEC);
 
   if(value){
+    noInterrupts();
     tiempoLed=40000000;
     timer0_isr_init();
     timer0_write(ESP.getCycleCount() + tiempoLed); // 80MHz == 1sec
     timer0_attachInterrupt(ISR_Blink);
-
+    interrupts();
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
     delay(100);
@@ -278,6 +330,17 @@ void setup() {
 void loop() {
   server.handleClient();
 
+  /*
+   //reconnect if connection is lost
+  if (!client.connected() && WiFi.status() == 3) {reconnect();}
+
+  //maintain MQTT connection
+  client.loop();
+
+  //MUST delay to allow ESP8266 WIFI functions to run
+  delay(10); 
+
+*/
   if (n != contador)
   
            {  blink50();
@@ -287,7 +350,7 @@ void loop() {
               EEPROM.write(0,modo);
               EEPROM.commit();
               delay(10);
-              ESP.reset();
+             // ESP.reset();
               
          }
    if (n2 != contador2)
@@ -295,6 +358,10 @@ void loop() {
            {  n2 = contador2 ;
               Serial.println("Relay!!");
               digitalWrite(relay,!digitalRead(relay));
+             /*
+              if(digitalRead(light1)){client.publish("prueba/light1/confirm", "Light1 On");}
+              else{client.publish("prueba/light1/confirm", "Light1 Off");}
+           */
          }
 }
 
@@ -409,4 +476,50 @@ String lee(int addr) {
   return nuevoString;
 }
 
+ /*
  
+ 
+void callback(char* topic, byte* payload, unsigned int length) {
+
+  //convert topic to string to make it easier to work with
+  String topicStr = topic; 
+
+  //Print out some debugging info
+  Serial.println("Callback update.");
+  Serial.print("Topic: ");
+  Serial.println(topicStr);
+
+   if(topicStr == lightTopic){
+
+      //turn the light on if the payload is '1' and publish to the MQTT server a confirmation message
+        if(payload[0] == '1'){
+          digitalWrite(light1, HIGH);
+          client.publish("prueba/light1/confirm", "Light1 On");
+          }
+      //turn the light off if the payload is '0' and publish to the MQTT server a confirmation message
+        else if (payload[0] == '0'){
+          digitalWrite(light1, LOW);
+          client.publish("prueba/light1/confirm", "Light1 Off");
+        }
+   }
+    if(topicStr == lightTopic2){
+
+       //turn the light on if the payload is '1' and publish to the MQTT server a confirmation message
+        if(payload[0] == '1'){
+          digitalWrite(light2, HIGH);
+          client.publish("prueba/light2/confirm", "Light2 On");
+          }
+      //turn the light off if the payload is '0' and publish to the MQTT server a confirmation message
+        else if (payload[0] == '0'){
+          digitalWrite(light2, LOW);
+          client.publish("prueba/light2/confirm", "Light2 Off");
+        }
+
+      
+    }
+}
+
+ 
+ 
+ 
+ */
