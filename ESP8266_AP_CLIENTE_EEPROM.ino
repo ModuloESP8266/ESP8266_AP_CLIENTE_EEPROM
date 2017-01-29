@@ -127,6 +127,7 @@ void setup() {
   
   value = EEPROM.read(address);
   graba(150,"idirect.dlinkddns.com");
+   delay(10);
   ReadDataEprom();
  
   Serial.print("Configuracion: ");
