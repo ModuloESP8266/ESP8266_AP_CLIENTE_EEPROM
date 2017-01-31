@@ -31,7 +31,7 @@ const char* ssid_AP = "ESP8266";
 const char* password_AP = "PASSWORD";
 
 int channel = 11;
-
+int cont_mqtt=0;
 ESP8266WebServer server(80);
 
 
@@ -40,7 +40,7 @@ char pass[20];
 char Topic1[20];
 char Topic2[20];
 char ServerWan[40]={'i','d','i','r','e','c','t','.','d','l','i','n','k','.','c','o','m'};
-char ServerLan[20];
+char ServerLan[20]={'1','9','2','.','1','6','8','.','0','.','1','0','6'};
 
 String ssid_leido;
 String pass_leido;
@@ -71,11 +71,11 @@ int dir_serverlan = 190;
 
 
 String arregla_simbolos(String a) {
-  a.replace("%C3%A1", "á");
-  a.replace("%C3%A9", "é");
+  a.replace("%C3%A1", "Ã¡");
+  a.replace("%C3%A9", "Ã©");
   a.replace("%C3%A", "i");
-  a.replace("%C3%B3", "ó");
-  a.replace("%C3%BA", "ú");
+  a.replace("%C3%B3", "Ã³");
+  a.replace("%C3%BA", "Ãº");
   a.replace("%21", "!");
   a.replace("%23", "#");
   a.replace("%24", "$");
@@ -87,10 +87,10 @@ String arregla_simbolos(String a) {
   a.replace("%3D", "=");
   a.replace("%3F", "?");
   a.replace("%27", "'");
-  a.replace("%C2%BF", "¿");
-  a.replace("%C2%A1", "¡");
-  a.replace("%C3%B1", "ñ");
-  a.replace("%C3%91", "Ñ");
+  a.replace("%C2%BF", "Â¿");
+  a.replace("%C2%A1", "Â¡");
+  a.replace("%C3%B1", "Ã±");
+  a.replace("%C3%91", "Ã‘");
   a.replace("+", " ");
   a.replace("%2B", "+");
   a.replace("%22", "\"");
@@ -124,10 +124,9 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
   EEPROM.begin(1024);
-  
   value = EEPROM.read(address);
   graba(150,"idirect.dlinkddns.com");
-   delay(10);
+  delay(10);
   ReadDataEprom();
  
   Serial.print("Configuracion: ");
@@ -154,6 +153,7 @@ void setup() {
     Serial.println(myIP);
     server.on("/", []() {server.send(200, "text/html", pral);});
     server.on("/config", wifi_conf);
+    server.on("/borrar", borrar);
     server.begin();
     Serial.println("Webserver iniciado...");
     Serial.println("Conectese a la ssid: ESP8266 con password: PASSWORD.");
@@ -257,7 +257,19 @@ void intento_conexion() {
       }
 
       //otherwise print failed for debugging
-      else{Serial.println("Failed."); abort();}
+      else{Serial.println("Failed.");
+        //abort();
+       
+          
+            modo=1;
+            EEPROM.write(0,modo);
+            EEPROM.commit();
+            Serial.print("3 intentos de conexion al mqtt paso a modo configuracion");
+            ESP.reset();
+         
+       
+       //    abort();
+      }
     }
       
     
@@ -353,7 +365,11 @@ void loop() {
   server.handleClient();
 
    //reconnect if connection is lost
-  if (!client.connected() && WiFi.status() == 3) {intento_conexion();}
+  if (!client.connected() && WiFi.status() == 3) {
+    intento_conexion();
+ 
+  }
+ 
 
   //maintain MQTT connection
   client.loop();
@@ -469,7 +485,7 @@ void ISR_Blink(){
 void graba(int addr, String a) {
   int tamano = (a.length() + 1);
   Serial.print(tamano);
-  char inchar[30];    //'30' Tamaño maximo del string
+  char inchar[30];    //'30' TamaÃ±o maximo del string
   a.toCharArray(inchar, tamano);
   EEPROM.write(addr, tamano);
   for (int i = 0; i < tamano; i++) {
@@ -571,3 +587,12 @@ void ReadDataEprom(){
   
   
   }
+
+
+  void borrar(){
+      for(int i=0;i<1024;i++){
+    
+    graba(i, "");
+    }
+    }
+
