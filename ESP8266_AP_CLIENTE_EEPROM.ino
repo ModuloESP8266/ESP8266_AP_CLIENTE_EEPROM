@@ -23,8 +23,7 @@ const int sw=14;
 const int relay=12;
 
 volatile int tiempoLed=800000000;
-int address = 0;
-byte value;
+byte value=0;
 byte modo=0;
 /* Set these to your desired credentials. */
 const char* ssid_AP = "ESP8266";
@@ -32,6 +31,7 @@ const char* password_AP = "PASSWORD";
 
 int channel = 11;
 int cont_mqtt=0;
+
 ESP8266WebServer server(80);
 
 
@@ -122,27 +122,27 @@ String pral = "<html>"
 void setup() {
 
   Serial.begin(115200);
-  Serial.println();
+  pinMode(Boton_EEPROM, INPUT);
+  pinMode(LED,OUTPUT);
+
+  attachInterrupt( digitalPinToInterrupt(Boton_EEPROM), ServicioBoton, RISING);
+  attachInterrupt( digitalPinToInterrupt(sw), ServicioBoton2, RISING);
+  
   EEPROM.begin(1024);
-  value = EEPROM.read(address);
-  graba(150,"idirect.dlinkddns.com");
-  delay(10);
+  value = EEPROM.read(0);
+ //graba(150,"idirect.dlinkddns.com");
   ReadDataEprom();
  
   Serial.print("Configuracion: ");
   Serial.println(lee(dir_conf));
-  if(lee(dir_conf)=="noconfigurado"){
+  
+  if(lee(dir_conf)!="configurado"){
     value=1;
+     Serial.print("value = 1 porque figura que no esta configurado");
     }
   
-  attachInterrupt( digitalPinToInterrupt(Boton_EEPROM), ServicioBoton, RISING);
-  attachInterrupt( digitalPinToInterrupt(sw), ServicioBoton2, RISING);
-  
-  pinMode(Boton_EEPROM, INPUT);
-  pinMode(LED,OUTPUT);
-  
-  
-  if(value ){
+  if(value){
+    Serial.println();
     Serial.println("**********MODO CONFIGURACION************");
     scanWIFIS();
     Serial.print("Configuring access point...");
@@ -153,18 +153,18 @@ void setup() {
     Serial.println(myIP);
     server.on("/", []() {server.send(200, "text/html", pral);});
     server.on("/config", wifi_conf);
-    server.on("/borrar", borrar);
     server.begin();
     Serial.println("Webserver iniciado...");
     Serial.println("Conectese a la ssid: ESP8266 con password: PASSWORD.");
    
     }
   else{
+    
      Serial.println("**********MODO NORMAL************");
-     
      pinMode(sw, INPUT_PULLUP);
      pinMode(relay,OUTPUT);
      digitalWrite(relay,true);
+   
      WiFi.mode(WIFI_STA);
      intento_conexion();
 
@@ -258,17 +258,15 @@ void intento_conexion() {
 
       //otherwise print failed for debugging
       else{Serial.println("Failed.");
-        //abort();
+        abort();
        
-          
+          /*
             modo=1;
             EEPROM.write(0,modo);
             EEPROM.commit();
             Serial.print("3 intentos de conexion al mqtt paso a modo configuracion");
             ESP.reset();
-         
-       
-       //    abort();
+         */
       }
     }
       
@@ -367,8 +365,7 @@ void loop() {
    //reconnect if connection is lost
   if (!client.connected() && WiFi.status() == 3) {
     intento_conexion();
- 
-  }
+   }
  
 
   //maintain MQTT connection
@@ -584,15 +581,15 @@ void ReadDataEprom(){
   Serial.print("Server Lan MQTT: ");
   Serial.println(ServerLan);
  
-  
+   Serial.println("********** TERMINO DE LEER LOS DATOS DE LA EEPROM ************");
   
   }
 
 
   void borrar(){
-      for(int i=0;i<1024;i++){
+      for(int i=1;i<512;i++){
     
-    graba(i, "");
+    graba(i, " ");
     }
     }
 
